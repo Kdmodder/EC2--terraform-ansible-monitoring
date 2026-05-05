@@ -1,0 +1,28 @@
+- name: Send report
+  hosts: localhost
+  gather_facts: yes
+
+  vars:
+    collected_metrics: >-
+      {{
+        hostvars |
+        dict2items |
+        selectattr('value.vm_metrics', 'defined') |
+        map(attribute='value.vm_metrics') |
+        list
+      }}
+
+    timestamp: "{{ ansible_facts['date_time']['date'] }} {{ ansible_facts['date_time']['time'] }}"
+
+  tasks:
+
+    - name: Send email
+      mail:
+        host: smtp.gmail.com
+        port: 587
+        username: "{{ email_user }}"
+        password: "{{ email_pass }}"
+        to: "{{ alert_recipient }}"
+        subject: "VM Health Report"
+        body: "{{ lookup('template', 'templates/report.html.j2') }}"
+        subtype: html
