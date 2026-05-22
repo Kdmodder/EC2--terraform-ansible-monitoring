@@ -1,0 +1,52 @@
+- name: Install Docker and run container
+  hosts: workers
+  become: yes
+
+  vars:
+    docker_user:
+      - ubuntu
+
+  tasks:
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Ensure Docker is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ item }}"
+        group: docker
+        append: true
+      loop: "{{ docker_user }}"
+
+    - name: Install Docker Python module
+      apt:
+        name: python3-docker
+        state: present
+
+    - name: Run nginx container
+      community.docker.docker_container:
+        name: nginx_container
+        image: nginx
+        state: started
+        ports:
+          - "8080:80"
+
+    - name: Check Docker version
+      command: docker --version
+      register: docker_version
+
+    - name: Show Docker version
+      debug:
+        msg: "{{ docker_version.stdout }}"
