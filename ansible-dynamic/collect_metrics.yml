@@ -1,25 +1,24 @@
-- name: Collect metrics
-  hosts: workers
-  become: yes
+---
+- name: Send report
+  hosts: localhost
+  connection: local
 
   tasks:
 
-    - name: Get CPU usage
-      shell: "top -bn1 | grep 'Cpu(s)' | awk '{print 100 - $8}'"
-      register: cpu
+    - name: Read VM report
+      slurp:
+        path: /tmp/vm_report.txt
+      register: vm_report_file
 
-    - name: Get memory usage
-      shell: "free | awk '/Mem/{printf(\"%.0f\", $3/$2 * 100)}'"
-      register: mem
-
-    - name: Get disk usage
-      shell: "df / | awk 'NR==2 {print $5}' | tr -d '%'"
-      register: disk
-
-    - name: Store metrics
-      set_fact:
-        vm_metrics:
-          hostname: "{{ inventory_hostname }}"
-          cpu: "{{ cpu.stdout }}"
-          mem: "{{ mem.stdout }}"
-          disk: "{{ disk.stdout }}"
+    - name: Send email
+      community.general.mail:
+        host: "{{ smtp_server }}"
+        port: "{{ smtp_port }}"
+        username: "{{ email_user }}"
+        password: "{{ email_pass }}"
+        to: "{{ alert_recipient }}"
+        subject: "VM Health Report"
+        subtype: html
+        body: |
+          <h1>VM Health Report</h1>
+          <pre>{{ vm_report_file.content | b64decode }}</pre>
