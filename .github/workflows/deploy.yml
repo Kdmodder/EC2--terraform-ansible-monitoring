@@ -64,7 +64,7 @@ jobs:
         ssh -o StrictHostKeyChecking=no \
         -i ~/.ssh/kdmodder-ssh-key ubuntu@${{ env.CONTROL_NODE_IP }} << 'EOF'
 
-          cd /home/ubuntu/EC2--terraform-ansible-monitoring/ansible-dynamic
+          cd /home/ubuntu/ansible-dynamic
 
           ansible-playbook main.yml
 
