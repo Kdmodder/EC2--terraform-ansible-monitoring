@@ -15,7 +15,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-
       # -----------------------------------
       # Configure AWS Credentials
       # -----------------------------------
@@ -26,13 +25,11 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-
       # -----------------------------------
       # Setup Terraform
       # -----------------------------------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-
 
       # -----------------------------------
       # Terraform Init
@@ -41,14 +38,12 @@ jobs:
         working-directory: terraform
         run: terraform init
 
-
       # -----------------------------------
       # Terraform Apply
       # -----------------------------------
       - name: Terraform Apply
         working-directory: terraform
         run: terraform apply -auto-approve
-
 
       # -----------------------------------
       # Get Control Node Public IP
@@ -58,9 +53,8 @@ jobs:
         run: |
           echo "CONTROL_NODE_IP=$(terraform output -raw control_node_public_ip)" >> $GITHUB_ENV
 
-
       # -----------------------------------
-      # Save SSH Private Key
+      # Save SSH Private Key on Runner
       # -----------------------------------
       - name: Save SSH Private Key
         run: |
@@ -68,13 +62,11 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/kdmodder-ssh-key
           chmod 600 ~/.ssh/kdmodder-ssh-key
 
-
       # -----------------------------------
       # Wait for EC2 Initialization
       # -----------------------------------
       - name: Wait for EC2 Initialization
-        run: sleep 100
-
+        run: sleep 120
 
       # -----------------------------------
       # Copy Repository to Control Node
@@ -82,57 +74,64 @@ jobs:
       - name: Copy Repository to Control Node
         run: |
           rsync -avz \
-          -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/kdmodder-ssh-key" \
-          ./ ubuntu@${{ env.CONTROL_NODE_IP }}:/home/ubuntu/
-
+            -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/kdmodder-ssh-key" \
+            ./ ubuntu@${{ env.CONTROL_NODE_IP }}:/home/ubuntu/
 
       # -----------------------------------
-      # Run Ansible Automation
+      # Run Complete Automation
       # -----------------------------------
       - name: Run Ansible Playbook on Control Node
         run: |
           ssh -o StrictHostKeyChecking=no \
-          -i ~/.ssh/kdmodder-ssh-key ubuntu@${{ env.CONTROL_NODE_IP }} << 'EOF'
+            -i ~/.ssh/kdmodder-ssh-key \
+            ubuntu@${{ env.CONTROL_NODE_IP }} << 'EOF'
 
-            # -----------------------------------
-            # Create AWS Credentials
-            # -----------------------------------
-            mkdir -p ~/.aws
+          # -----------------------------------
+          # AWS Credentials
+          # -----------------------------------
+          mkdir -p ~/.aws
 
-            echo "[default]" > ~/.aws/credentials
-            echo "aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
-            echo "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
+          echo "[default]" > ~/.aws/credentials
+          echo "aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
+          echo "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
 
-            echo "[default]" > ~/.aws/config
-            echo "region=us-east-1" >> ~/.aws/config
+          echo "[default]" > ~/.aws/config
+          echo "region=us-east-1" >> ~/.aws/config
 
+          # -----------------------------------
+          # Email Secrets
+          # -----------------------------------
+          export EMAIL_USER="${{ secrets.EMAIL_USER }}"
+          export EMAIL_PASS="${{ secrets.EMAIL_PASS }}"
 
-            # -----------------------------------
-            # Export Email Secrets
-            # -----------------------------------
-            export EMAIL_USER="${{ secrets.EMAIL_USER }}"
-            export EMAIL_PASS="${{ secrets.EMAIL_PASS }}"
+          # -----------------------------------
+          # Create SSH Key on Control Node
+          # -----------------------------------
+          mkdir -p ~/.ssh
 
+          cat > ~/.ssh/kdmodder-ssh-key << 'KEY'
+          ${{ secrets.SSH_PRIVATE_KEY }}
+          KEY
 
-            # -----------------------------------
-            # Go to Ansible Directory
-            # -----------------------------------
-            cd /home/ubuntu/ansible-dynamic
+          chmod 600 ~/.ssh/kdmodder-ssh-key
 
+          # -----------------------------------
+          # Go to Ansible Directory
+          # -----------------------------------
+          cd /home/ubuntu/ansible-dynamic
 
-            # -----------------------------------
-            # Check Dynamic Inventory
-            # -----------------------------------
-            echo "===== CHECKING DYNAMIC INVENTORY ====="
+          # -----------------------------------
+          # Verify Dynamic Inventory
+          # -----------------------------------
+          echo "===== CHECKING DYNAMIC INVENTORY ====="
 
-            ansible-inventory -i aws_ec2.yml --graph
+          ansible-inventory -i aws_ec2.yml --graph
 
+          # -----------------------------------
+          # Run Full Automation
+          # -----------------------------------
+          echo "===== RUNNING PLAYBOOK ====="
 
-            # -----------------------------------
-            # Run Full Automation
-            # -----------------------------------
-            echo "===== RUNNING PLAYBOOK ====="
-
-            ansible-playbook -i aws_ec2.yml main.yml
+          ansible-playbook -i aws_ec2.yml main.yml
 
           EOF
