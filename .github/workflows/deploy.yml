@@ -9,63 +9,81 @@ jobs:
 
     steps:
 
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
 
-    - name: Terraform Init
-      working-directory: terraform
-      run: terraform init
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
 
 
-    - name: Terraform Apply
-      working-directory: terraform
-      run: terraform apply -auto-approve
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -auto-approve
 
 
-    - name: Get Control Node Public IP
-      id: terraform_output
-      working-directory: terraform
-      run: |
-        echo "CONTROL_NODE_IP=$(terraform output -raw control_node_public_ip)" >> $GITHUB_ENV
+      - name: Get Control Node Public IP
+        working-directory: terraform
+        run: |
+          echo "CONTROL_NODE_IP=$(terraform output -raw control_node_public_ip)" >> $GITHUB_ENV
 
 
-    - name: Save SSH Private Key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/kdmodder-ssh-key
-        chmod 600 ~/.ssh/kdmodder-ssh-key
+      - name: Save SSH Private Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/kdmodder-ssh-key
+          chmod 600 ~/.ssh/kdmodder-ssh-key
 
 
-    - name: Wait for EC2 Initialization
-      run: sleep 120
+      - name: Wait for EC2 Initialization
+        run: sleep 120
 
 
-    - name: Copy Repository to Control Node
-      run: |
-        rsync -avz -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/kdmodder-ssh-key" \
-        ./ ubuntu@${{ env.CONTROL_NODE_IP }}:/home/ubuntu/
+      - name: Copy Repository to Control Node
+        run: |
+          rsync -avz \
+          -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/kdmodder-ssh-key" \
+          ./ ubuntu@${{ env.CONTROL_NODE_IP }}:/home/ubuntu/
 
 
-    - name: Run Ansible Playbook on Control Node
-      run: |
-        ssh -o StrictHostKeyChecking=no \
-        -i ~/.ssh/kdmodder-ssh-key ubuntu@${{ env.CONTROL_NODE_IP }} << 'EOF'
+      - name: Run Ansible Playbook on Control Node
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+          -i ~/.ssh/kdmodder-ssh-key ubuntu@${{ env.CONTROL_NODE_IP }} << EOF
 
-          cd /home/ubuntu/ansible-dynamic
+            mkdir -p ~/.aws
 
-          ansible-playbook main.yml
+            cat > ~/.aws/credentials << AWSCREDS
+            [default]
+            aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWSCREDS
 
-        EOF
+            cat > ~/.aws/config << AWSCONFIG
+            [default]
+            region=us-east-1
+            AWSCONFIG
+
+            export EMAIL_USER="${{ secrets.EMAIL_USER }}"
+            export EMAIL_PASS="${{ secrets.EMAIL_PASS }}"
+
+            cd /home/ubuntu/ansible-dynamic
+
+            chmod 600 ~/.ssh/kdmodder-ssh-key
+
+            ansible-playbook main.yml
+
+          EOF
