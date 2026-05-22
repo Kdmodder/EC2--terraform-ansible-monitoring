@@ -21,3 +21,6 @@ output "instance_details" {
     }
   }
 }
+output "control_node_public_ip" {
+  value = aws_instance.control_node.public_ip
+}
