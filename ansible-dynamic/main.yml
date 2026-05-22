@@ -1,2 +1,3 @@
+- import_playbook: docker_setup.yml
 - import_playbook: collect_metrics.yml
 - import_playbook: send_report.yml
