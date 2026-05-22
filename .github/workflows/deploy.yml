@@ -9,16 +9,16 @@ jobs:
 
     steps:
 
-      # -----------------------------
+      # -----------------------------------
       # Checkout Repository
-      # -----------------------------
+      # -----------------------------------
       - name: Checkout Repository
         uses: actions/checkout@v4
 
 
-      # -----------------------------
+      # -----------------------------------
       # Configure AWS Credentials
-      # -----------------------------
+      # -----------------------------------
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -27,41 +27,41 @@ jobs:
           aws-region: us-east-1
 
 
-      # -----------------------------
+      # -----------------------------------
       # Setup Terraform
-      # -----------------------------
+      # -----------------------------------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
 
-      # -----------------------------
+      # -----------------------------------
       # Terraform Init
-      # -----------------------------
+      # -----------------------------------
       - name: Terraform Init
         working-directory: terraform
         run: terraform init
 
 
-      # -----------------------------
+      # -----------------------------------
       # Terraform Apply
-      # -----------------------------
+      # -----------------------------------
       - name: Terraform Apply
         working-directory: terraform
         run: terraform apply -auto-approve
 
 
-      # -----------------------------
+      # -----------------------------------
       # Get Control Node Public IP
-      # -----------------------------
+      # -----------------------------------
       - name: Get Control Node Public IP
         working-directory: terraform
         run: |
           echo "CONTROL_NODE_IP=$(terraform output -raw control_node_public_ip)" >> $GITHUB_ENV
 
 
-      # -----------------------------
+      # -----------------------------------
       # Save SSH Private Key
-      # -----------------------------
+      # -----------------------------------
       - name: Save SSH Private Key
         run: |
           mkdir -p ~/.ssh
@@ -69,16 +69,16 @@ jobs:
           chmod 600 ~/.ssh/kdmodder-ssh-key
 
 
-      # -----------------------------
+      # -----------------------------------
       # Wait for EC2 Initialization
-      # -----------------------------
+      # -----------------------------------
       - name: Wait for EC2 Initialization
         run: sleep 120
 
 
-      # -----------------------------
+      # -----------------------------------
       # Copy Repository to Control Node
-      # -----------------------------
+      # -----------------------------------
       - name: Copy Repository to Control Node
         run: |
           rsync -avz \
@@ -86,15 +86,17 @@ jobs:
           ./ ubuntu@${{ env.CONTROL_NODE_IP }}:/home/ubuntu/
 
 
-      # -----------------------------
+      # -----------------------------------
       # Run Ansible Automation
-      # -----------------------------
+      # -----------------------------------
       - name: Run Ansible Playbook on Control Node
         run: |
           ssh -o StrictHostKeyChecking=no \
           -i ~/.ssh/kdmodder-ssh-key ubuntu@${{ env.CONTROL_NODE_IP }} << 'EOF'
 
+            # -----------------------------------
             # Create AWS Credentials
+            # -----------------------------------
             mkdir -p ~/.aws
 
             echo "[default]" > ~/.aws/credentials
@@ -104,18 +106,33 @@ jobs:
             echo "[default]" > ~/.aws/config
             echo "region=us-east-1" >> ~/.aws/config
 
+
+            # -----------------------------------
             # Export Email Secrets
+            # -----------------------------------
             export EMAIL_USER="${{ secrets.EMAIL_USER }}"
             export EMAIL_PASS="${{ secrets.EMAIL_PASS }}"
 
-            # Go to Dynamic Ansible Folder
+
+            # -----------------------------------
+            # Go to Ansible Directory
+            # -----------------------------------
             cd /home/ubuntu/ansible-dynamic
 
-            # Fix SSH Key Permissions
-            chmod 600 ~/.ssh/kdmodder-ssh-key
 
-            # Run Complete Automation
-            ansible-playbook main.yml
+            # -----------------------------------
+            # Check Dynamic Inventory
+            # -----------------------------------
+            echo "===== CHECKING DYNAMIC INVENTORY ====="
+
+            ansible-inventory -i aws_ec2.yml --graph
+
+
+            # -----------------------------------
+            # Run Full Automation
+            # -----------------------------------
+            echo "===== RUNNING PLAYBOOK ====="
+
+            ansible-playbook -i aws_ec2.yml main.yml
 
           EOF
-        
