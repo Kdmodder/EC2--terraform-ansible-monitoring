@@ -1,5 +1,5 @@
-email_user: "{{ lookup('env', 'EMAIL_USER') }}"
-email_pass: "{{ lookup('env', 'EMAIL_PASS') }}"
+email_user: ${{ secrets.EMAIL_USER }}
+email_pass: ${{ secrets.EMAIL_PASS }}
 alert_recipient: "sureshkundan913@gmail.com"
 smtp_server: "smtp.gmail.com"
 smtp_port: 587
