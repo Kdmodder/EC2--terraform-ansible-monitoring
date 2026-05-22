@@ -3,10 +3,6 @@ plugin: amazon.aws.aws_ec2
 regions:
   - us-east-1
 
-filters:
-  instance-state-name: running
-  tag:Environment: dev
-
 hostnames:
   - private-ip-address
 
@@ -16,4 +12,3 @@ compose:
 groups:
   workers: "'worker' in tags.Name"
   control: "'control' in tags.Name"
-
