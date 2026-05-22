@@ -73,7 +73,7 @@ jobs:
       # Wait for EC2 Initialization
       # -----------------------------------
       - name: Wait for EC2 Initialization
-        run: sleep 120
+        run: sleep 100
 
 
       # -----------------------------------
