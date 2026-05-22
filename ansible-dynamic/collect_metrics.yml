@@ -1,5 +1,4 @@
----
- - name: Collect metrics
+- name: Collect metrics
   hosts: workers
   become: yes
 
