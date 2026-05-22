@@ -10,3 +10,5 @@ sudo apt install -y ansible python3-pip
 pip3 install boto3 botocore
 
 echo "Ansible installed successfully"
+
+ansible-galaxy collection install amazon.aws
