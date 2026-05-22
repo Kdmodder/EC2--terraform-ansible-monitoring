@@ -3,14 +3,14 @@
 *.tfstate
 *.tfstate.backup
 .terraform.lock.hcl
-
+terraform/hosts.ini
 # Keys
 *.pem
 *.key
 keys/
 
 # Secrets
-**/group_vars/all.yml
+#**/group_vars/all.yml
 terraform.tfvars
 
 # Python
